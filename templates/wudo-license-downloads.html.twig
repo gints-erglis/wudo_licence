@@ -1,0 +1,63 @@
+{#
+/**
+ * @file
+ * The downloads of one licence.
+ *
+ * Available variables:
+ * - license: product, licensee, updates_until, expired, activations,
+ *   max_activations.
+ * - releases: newest first; each has version, released, notes, covered, url,
+ *   filename. Releases after the end of updates are listed with covered
+ *   FALSE and no url.
+ * - activation_form: computer code in, licence file out.
+ * - close_form: closes the downloads in this browser.
+ */
+#}
+<div class="license-downloads">
+  <section class="license-downloads__license">
+    <h2>{{ license.product }}</h2>
+    <dl>
+      <dt>{{ 'Licensed to'|t }}</dt>
+      <dd>{{ license.licensee }}</dd>
+      <dt>{{ 'Updates until'|t }}</dt>
+      <dd>
+        {{ license.updates_until }}
+        {% if license.expired %}
+          ({{ 'ended; earlier versions remain yours'|t }})
+        {% endif %}
+      </dd>
+      <dt>{{ 'Computers'|t }}</dt>
+      <dd>{{ '@used of @max'|t({'@used': license.activations, '@max': license.max_activations}) }}</dd>
+    </dl>
+  </section>
+
+  <section class="license-downloads__releases">
+    <h2>{{ 'Versions'|t }}</h2>
+    {% if releases %}
+      <ul>
+        {% for release in releases %}
+          <li>
+            <h3>{{ release.version }} <small>{{ release.released }}</small></h3>
+            {% if release.covered %}
+              <p><a href="{{ release.url }}" download>{{ 'Download @file'|t({'@file': release.filename}) }}</a></p>
+            {% else %}
+              <p>{{ 'Released after your updates ended. Renew the licence to download it.'|t }}</p>
+            {% endif %}
+            {% if release.notes %}
+              <p>{{ release.notes|nl2br }}</p>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>{{ 'No versions yet.'|t }}</p>
+    {% endif %}
+  </section>
+
+  <section class="license-downloads__activation">
+    <h2>{{ 'Licence file'|t }}</h2>
+    {{ activation_form }}
+  </section>
+
+  {{ close_form }}
+</div>

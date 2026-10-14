@@ -1,0 +1,20 @@
+entity.wudo_license.collection:
+  title: 'Licences'
+  route_name: entity.wudo_license.collection
+  base_route: system.admin_content
+  weight: 30
+
+wudo_license.licenses:
+  title: 'Licences'
+  route_name: entity.wudo_license.collection
+  parent_id: entity.wudo_license.collection
+
+entity.wudo_license_product.collection:
+  title: 'Products'
+  route_name: entity.wudo_license_product.collection
+  parent_id: entity.wudo_license.collection
+
+entity.wudo_license_release.collection:
+  title: 'Releases'
+  route_name: entity.wudo_license_release.collection
+  parent_id: entity.wudo_license.collection

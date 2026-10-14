@@ -1,0 +1,19 @@
+wudo_license.settings:
+  type: config_object
+  label: 'Wudo License settings'
+  mapping:
+    default_max_activations:
+      type: integer
+      label: 'Computers per new licence'
+    code_minutes:
+      type: integer
+      label: 'Minutes an e-mailed code is valid'
+    session_minutes:
+      type: integer
+      label: 'Minutes the downloads stay open after the code'
+    reminder_days:
+      type: sequence
+      label: 'Days before the end of updates when the customer is reminded'
+      sequence:
+        type: integer
+        label: 'Days'

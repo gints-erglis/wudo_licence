@@ -1,0 +1,10 @@
+name: 'Wudo License'
+type: module
+description: 'Sells software by licence: customers download with a licence key and a code sent by e-mail, and activate a computer to get a signed licence file.'
+package: Custom
+core_version_requirement: ^11.2
+configure: entity.wudo_license.collection
+dependencies:
+  - drupal:datetime
+  - drupal:file
+  - drupal:options

@@ -1,0 +1,6 @@
+default_max_activations: 2
+code_minutes: 10
+session_minutes: 30
+reminder_days:
+  - 30
+  - 7

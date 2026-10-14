@@ -1,0 +1,17 @@
+entity.wudo_license.add_form:
+  route_name: entity.wudo_license.add_form
+  title: 'Add licence'
+  appears_on:
+    - entity.wudo_license.collection
+
+entity.wudo_license_product.add_form:
+  route_name: entity.wudo_license_product.add_form
+  title: 'Add product'
+  appears_on:
+    - entity.wudo_license_product.collection
+
+entity.wudo_license_release.add_form:
+  route_name: entity.wudo_license_release.add_form
+  title: 'Add release'
+  appears_on:
+    - entity.wudo_license_release.collection

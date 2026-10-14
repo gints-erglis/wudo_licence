@@ -1,0 +1,17 @@
+services:
+  _defaults:
+    autowire: true
+
+  wudo_license.signer:
+    class: Drupal\wudo_license\LicenseSigner
+  Drupal\wudo_license\LicenseSigner: '@wudo_license.signer'
+
+  wudo_license.activator:
+    class: Drupal\wudo_license\Activator
+  Drupal\wudo_license\Activator: '@wudo_license.activator'
+
+  wudo_license.access:
+    class: Drupal\wudo_license\DownloadAccess
+    arguments:
+      $codes: '@keyvalue.expirable'
+  Drupal\wudo_license\DownloadAccess: '@wudo_license.access'

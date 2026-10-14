@@ -1,0 +1,36 @@
+wudo_license.downloads:
+  path: '/downloads'
+  defaults:
+    _controller: '\Drupal\wudo_license\Controller\DownloadController::page'
+    _title: 'Downloads'
+  requirements:
+    # Open to everyone: the page asks for a licence key and an e-mailed code,
+    # and shows nothing else without them.
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+
+wudo_license.release_download:
+  path: '/downloads/release/{wudo_license_release}'
+  defaults:
+    _controller: '\Drupal\wudo_license\Controller\DownloadController::release'
+  requirements:
+    # Open to everyone: the controller hands out the file only to a visitor
+    # whose licence, opened with key and code, covers the release.
+    _access: 'TRUE'
+    wudo_license_release: \d+
+  options:
+    no_cache: TRUE
+    parameters:
+      wudo_license_release:
+        type: entity:wudo_license_release
+
+wudo_license.activation_delete:
+  path: '/admin/content/licenses/activation/{wudo_license_activation}/delete'
+  defaults:
+    _entity_form: 'wudo_license_activation.delete'
+    _title: 'Free the activation'
+  requirements:
+    _permission: 'administer software licenses'
+  options:
+    _admin_route: TRUE

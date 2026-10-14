@@ -1,0 +1,4 @@
+administer software licenses:
+  title: 'Administer software licences'
+  description: 'Create licences, products and releases, see activations and free activation slots. Licence keys and customer e-mail addresses are visible.'
+  restrict access: true
