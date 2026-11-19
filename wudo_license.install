@@ -33,3 +33,14 @@ function wudo_license_update_11001(): void {
     }
   }
 }
+
+/**
+ * Add the Paddle transaction to licences, for one-time purchases.
+ */
+function wudo_license_update_11002(): void {
+  $manager = \Drupal::entityDefinitionUpdateManager();
+  $definition = License::baseFieldDefinitions($manager->getEntityType('wudo_license'))['paddle_transaction'];
+  if ($definition instanceof FieldStorageDefinitionInterface && !$manager->getFieldStorageDefinition('paddle_transaction', 'wudo_license')) {
+    $manager->installFieldStorageDefinition('paddle_transaction', 'wudo_license', 'wudo_license', $definition);
+  }
+}

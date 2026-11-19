@@ -92,7 +92,7 @@ class LicenseProduct extends ContentEntityBase {
 
     $fields['paddle_prices'] = BaseFieldDefinition::create('string')
       ->setLabel(new TranslatableMarkup('Paddle prices'))
-      ->setDescription(new TranslatableMarkup('Yearly Paddle prices (pri_…) that sell this product. A first payment creates a licence and e-mails its key; each renewal extends its updates by the paid period. A price of the sandbox and one of the live account are different IDs.'))
+      ->setDescription(new TranslatableMarkup('Paddle prices (pri_…) that sell this product; the first is sold on its checkout page. A one-time payment creates a licence with a year of updates and e-mails its key. A price of the sandbox and one of the live account are different IDs.'))
       ->setCardinality(BaseFieldDefinition::CARDINALITY_UNLIMITED)
       ->setSetting('max_length', 64)
       ->addPropertyConstraints('value', ['Regex' => ['pattern' => '/^pri_[a-z0-9]+$/D']])

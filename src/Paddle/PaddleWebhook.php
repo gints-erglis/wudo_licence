@@ -18,18 +18,21 @@ use Psr\Log\LoggerInterface;
 /**
  * Turns Paddle webhook events into licences.
  *
- * Products are sold as yearly subscriptions:
+ * A product is sold with a one-time price or a yearly subscription price:
+ * - a completed one-time payment creates a licence with a year of updates
+ *   and e-mails the key; when the updates end, the customer buys again and
+ *   gets a new licence;
  * - the first completed payment of a subscription creates a licence, with
- *   updates until the end of the paid period, and e-mails the key;
- * - every later completed payment extends "Updates until" to the end of the
- *   newly paid period;
- * - subscription events keep the subscription's status on the licence, so
- *   that no "renew" reminders go to customers whose payments run on their
- *   own.
+ *   updates until the end of the paid period, and e-mails the key; every
+ *   later payment extends "Updates until" to the end of the newly paid
+ *   period; subscription events keep the subscription's status on the
+ *   licence, so that no "renew" reminders go to customers whose payments run
+ *   on their own.
  *
  * Paddle delivers events at least once and in no guaranteed order, so each
- * step can run again without effect: a subscription has one licence, the end
- * date only moves forward, and an older status never replaces a newer one.
+ * step can run again without effect: a payment or a subscription has one
+ * licence, the end date only moves forward, and an older status never
+ * replaces a newer one.
  */
 class PaddleWebhook {
 
@@ -37,6 +40,11 @@ class PaddleWebhook {
    * Subscription states in which Paddle keeps charging.
    */
   const RENEWING = ['active', 'trialing', 'past_due'];
+
+  /**
+   * How long updates are included with a one-time purchase.
+   */
+  const ONE_TIME_UPDATES = '+1 year';
 
   public function __construct(
     protected PaddleClient $paddle,
@@ -68,42 +76,60 @@ class PaddleWebhook {
   }
 
   /**
-   * A payment went through: create the licence or extend it.
+   * A payment went through: create the licence, or extend a subscription's.
    */
   protected function transactionCompleted(array $transaction): void {
     $id = (string) ($transaction['id'] ?? '');
     $subscription = (string) ($transaction['subscription_id'] ?? '');
     [$product, $quantity] = $this->product($transaction);
-    if (!$product) {
+    if (!$product || $id === '') {
       // Something else sold through the same Paddle account.
       return;
     }
+
     if ($subscription === '') {
-      $this->logger()->warning('Paddle transaction @id for @product is not a subscription; no licence was created. Sell products with a yearly price.', [
-        '@id' => $id,
-        '@product' => $product->label(),
-      ]);
+      // One-time: a year of updates from the day of the payment.
+      $paid = substr((string) ($transaction['billed_at'] ?? $transaction['created_at'] ?? ''), 0, 10);
+      if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $paid)) {
+        throw new \RuntimeException('Paddle transaction ' . $id . ' has no billing date.');
+      }
+      $until = (new \DateTimeImmutable($paid))->modify(self::ONE_TIME_UPDATES)->format('Y-m-d');
+      $this->locked('transaction:' . $id, function () use ($id, $product, $quantity, $until): void {
+        if (!$this->licenseBy('paddle_transaction', $id)) {
+          $this->create($id, '', $product, $quantity, $until);
+        }
+      });
       return;
     }
+
     $until = substr((string) ($transaction['billing_period']['ends_at'] ?? ''), 0, 10);
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/D', $until)) {
       throw new \RuntimeException('Paddle transaction ' . $id . ' has no billing period.');
     }
-
-    // The same payment may be delivered twice at once.
-    $lock = 'wudo_license_paddle:' . $subscription;
-    // wait() returns TRUE when the lock is still taken after waiting.
-    if (!$this->lock->acquire($lock, 30) && ($this->lock->wait($lock, 10) || !$this->lock->acquire($lock, 30))) {
-      throw new \RuntimeException('Subscription ' . $subscription . ' is being handled already.');
-    }
-    try {
-      $license = $this->licenseBySubscription($subscription);
+    $this->locked('subscription:' . $subscription, function () use ($id, $subscription, $product, $quantity, $until): void {
+      $license = $this->licenseBy('paddle_subscription', $subscription);
       if ($license) {
         $this->extend($license, $until);
       }
       else {
         $this->create($id, $subscription, $product, $quantity, $until);
       }
+    });
+  }
+
+  /**
+   * Runs a step while no other request handles the same payment.
+   *
+   * Paddle may deliver the same event twice at once.
+   */
+  protected function locked(string $name, callable $step): void {
+    $lock = 'wudo_license_paddle:' . $name;
+    // wait() returns TRUE when the lock is still taken after waiting.
+    if (!$this->lock->acquire($lock, 30) && ($this->lock->wait($lock, 10) || !$this->lock->acquire($lock, 30))) {
+      throw new \RuntimeException('Paddle ' . $name . ' is being handled already.');
+    }
+    try {
+      $step();
     }
     finally {
       $this->lock->release($lock);
@@ -111,7 +137,18 @@ class PaddleWebhook {
   }
 
   /**
-   * Creates a licence for a new subscription and e-mails the key.
+   * Creates a licence for a payment and e-mails the key.
+   *
+   * @param string $transaction_id
+   *   The Paddle transaction.
+   * @param string $subscription
+   *   The Paddle subscription, or '' for a one-time purchase.
+   * @param \Drupal\wudo_license\Entity\LicenseProduct $product
+   *   The product bought.
+   * @param int $quantity
+   *   How many were bought; each brings the default number of computers.
+   * @param string $until
+   *   The last day of updates, as Y-m-d.
    */
   protected function create(string $transaction_id, string $subscription, LicenseProduct $product, int $quantity, string $until): void {
     $transaction = $this->paddle->transaction($transaction_id);
@@ -129,15 +166,16 @@ class PaddleWebhook {
       'updates_until' => $until,
       'max_activations' => max(1, $per_licence * $quantity),
       'invoice' => (string) ($transaction['invoice_number'] ?? '') ?: $transaction_id,
-      'paddle_subscription' => $subscription,
+      'paddle_transaction' => $transaction_id,
+      'paddle_subscription' => $subscription ?: NULL,
       'paddle_customer' => (string) ($transaction['customer_id'] ?? ''),
-      'paddle_status' => 'active',
+      'paddle_status' => $subscription ? 'active' : NULL,
     ]);
     $license->save();
-    $this->logger()->notice('Licence @id for @product created from Paddle subscription @subscription.', [
+    $this->logger()->notice('Licence @id for @product created from Paddle transaction @transaction.', [
       '@id' => $license->id(),
       '@product' => $product->label(),
-      '@subscription' => $subscription,
+      '@transaction' => $transaction_id,
     ]);
     $this->mail('purchase', $license);
   }
@@ -164,7 +202,7 @@ class PaddleWebhook {
    * Keeps the subscription's status on its licence.
    */
   protected function subscriptionChanged(array $subscription, string $occurred_at): void {
-    $license = $this->licenseBySubscription((string) ($subscription['id'] ?? ''));
+    $license = $this->licenseBy('paddle_subscription', (string) ($subscription['id'] ?? ''));
     $status = (string) ($subscription['status'] ?? '');
     $time = strtotime($occurred_at) ?: $this->time->getRequestTime();
     // Before the first payment there is no licence yet; it starts as active.
@@ -199,14 +237,14 @@ class PaddleWebhook {
   }
 
   /**
-   * The licence of a subscription, if there is one.
+   * The licence of a Paddle transaction or subscription, if there is one.
    */
-  protected function licenseBySubscription(string $subscription): ?License {
-    if ($subscription === '') {
+  protected function licenseBy(string $field, string $value): ?License {
+    if ($value === '') {
       return NULL;
     }
     $storage = $this->entityTypeManager->getStorage('wudo_license');
-    $ids = $storage->getQuery()->accessCheck(FALSE)->condition('paddle_subscription', $subscription)->range(0, 1)->execute();
+    $ids = $storage->getQuery()->accessCheck(FALSE)->condition($field, $value)->range(0, 1)->execute();
     $license = $ids ? $storage->load(reset($ids)) : NULL;
     return $license instanceof License ? $license : NULL;
   }

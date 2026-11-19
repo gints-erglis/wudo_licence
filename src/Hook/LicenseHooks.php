@@ -74,6 +74,11 @@ class LicenseHooks {
     $site = (string) $this->configFactory->get('system.site')->get('name');
     $product = $license->getProduct()?->label() ?? '';
     $downloads = Url::fromRoute('wudo_license.downloads', [], ['absolute' => TRUE])->toString();
+    // Where a new licence is bought, if the product is sold through Paddle.
+    $sold = $license->getProduct();
+    $checkout = $sold && $sold->getPaddlePrices() && $this->paddle->clientToken() !== ''
+      ? Url::fromRoute('wudo_license.checkout', ['code' => $sold->getCode()], ['absolute' => TRUE])->toString()
+      : NULL;
 
     switch ($key) {
       case 'code':
@@ -92,11 +97,18 @@ class LicenseHooks {
           '@date' => $license->getUpdatesUntil(),
         ], $options);
         $message['body'][] = $this->t('Hello,', [], $options);
-        $message['body'][] = $this->t('the updates of your @product licence (@licensee) run until @date. Versions released up to that day remain yours and keep working. To receive the versions after it, renew the licence: reply to this message and we will send an invoice.', [
-          '@product' => $product,
-          '@licensee' => $license->getLicensee(),
-          '@date' => $license->getUpdatesUntil(),
-        ], $options);
+        $message['body'][] = $checkout
+          ? $this->t('the updates of your @product licence (@licensee) run until @date. Versions released up to that day remain yours and keep working. To receive the versions after it, buy a new licence: @url', [
+            '@product' => $product,
+            '@licensee' => $license->getLicensee(),
+            '@date' => $license->getUpdatesUntil(),
+            '@url' => $checkout,
+          ], $options)
+          : $this->t('the updates of your @product licence (@licensee) run until @date. Versions released up to that day remain yours and keep working. To receive the versions after it, renew the licence: reply to this message and we will send an invoice.', [
+            '@product' => $product,
+            '@licensee' => $license->getLicensee(),
+            '@date' => $license->getUpdatesUntil(),
+          ], $options);
         $message['body'][] = $this->t('Your downloads: @url', ['@url' => $downloads], $options);
         $message['body'][] = $site;
         break;
@@ -112,9 +124,13 @@ class LicenseHooks {
           '@url' => $downloads,
           '@count' => $license->getMaxActivations(),
         ], $options);
-        $message['body'][] = $this->t('Updates are included until @date, and each yearly renewal of the subscription extends them. Versions released up to the last day of your updates remain yours, even if you cancel. Paddle, our reseller, sends the receipt and handles the subscription.', [
-          '@date' => $license->getUpdatesUntil(),
-        ], $options);
+        $message['body'][] = $license->getPaddleSubscription() !== ''
+          ? $this->t('Updates are included until @date, and each yearly renewal of the subscription extends them. Versions released up to the last day of your updates remain yours, even if you cancel. Paddle, our reseller, sends the receipt and handles the subscription.', [
+            '@date' => $license->getUpdatesUntil(),
+          ], $options)
+          : $this->t('Updates are included until @date. Versions released up to that day remain yours and keep working; for later ones, buy a new licence. We will remind you before the end. Paddle, our reseller, sends the receipt.', [
+            '@date' => $license->getUpdatesUntil(),
+          ], $options);
         $message['body'][] = $site;
         break;
 

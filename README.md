@@ -1,7 +1,7 @@
 # Wudo License
 
 A Drupal 11 module for selling software by licence, either by invoice or as
-a yearly subscription through [Paddle](https://www.paddle.com), which as
+a one-time purchase through [Paddle](https://www.paddle.com), which as
 merchant of record charges, invoices and pays the taxes. The customer gets a licence key, opens
 their downloads with it and a code sent by e-mail, downloads the versions
 the licence covers, and gets a signed licence file for each computer the
@@ -124,8 +124,8 @@ stay open, and the reminder days.
 
 ## Selling with Paddle
 
-Paddle sells each product as a yearly subscription, and the site follows
-by webhook; nobody has to be there:
+Paddle sells each product for a one-time payment, which brings a year of
+updates; the site follows by webhook, and nobody has to be there:
 
 1. Every product with a Paddle price has a page of its own,
    `/checkout/{product code}` (e.g. `/checkout/jpeg-repair`): a stable
@@ -135,16 +135,21 @@ by webhook; nobody has to be there:
    checkout opens over the page.
 2. When the payment is complete, Paddle calls `/paddle/webhook`. The module
    asks Paddle's API for the buyer's e-mail address and name (the business
-   name, if they gave one), creates a licence with updates until the end of
-   the paid year, and e-mails the key, with a copy to the site's address.
+   name, if they gave one), creates a licence with updates until the same
+   day a year later, and e-mails the key, with a copy to the site's address.
    The buyer comes back to `/downloads`. A quantity above one gives that
    many times the default number of computers.
-3. Every year Paddle charges again; each payment extends "Updates until" to
-   the end of the new year and tells the customer. While the subscription
-   runs, no reminders are sent. If it is cancelled or the payment fails for
-   good, the updates stop at the last paid day, the reminders resume, and
-   the versions up to then keep working. Customers cancel, and change their
-   card, through the links in Paddle's e-mails.
+3. Before the year ends the customer is reminded, with a link to the
+   product's checkout page. Nothing is charged on its own: whoever wants
+   the later versions buys again and gets a new licence, with a new key.
+   The versions up to the end of the first year keep working with the old
+   licence file.
+
+A yearly subscription price works too: its first payment creates the
+licence, each renewal extends "Updates until" to the end of the new period
+and tells the customer, and no reminders are sent while it renews. Its
+checkout says "Subscribe", and the page and e-mail texts are written for a
+one-time purchase, so offer one model per site.
 
 Refunds are not acted on: revoke the licence by hand if you want to.
 
@@ -152,16 +157,16 @@ Refunds are not acted on: revoke the licence by hand if you want to.
 
 In Paddle (start in the sandbox, <https://sandbox-vendors.paddle.com>):
 
-1. **Catalog → Products:** a product with a price that recurs every year.
-   Note the price ID (`pri_…`).
+1. **Catalog → Products:** a product with a one-time price (no billing
+   cycle). Note the price ID (`pri_…`).
 2. **Developer tools → Authentication:** a client-side token (`test_…` or
    `live_…`) and an API key that may read transactions, customers and
    businesses.
 3. **Developer tools → Notifications:** a destination
-   `https://<site>/paddle/webhook` with the events `transaction.completed`,
-   `subscription.created`, `subscription.updated`, `subscription.canceled`,
-   `subscription.past_due`, `subscription.paused` and
-   `subscription.resumed`. Note its secret key.
+   `https://<site>/paddle/webhook` with the event `transaction.completed`
+   (and, for subscription prices, `subscription.created`,
+   `subscription.updated`, `subscription.canceled`, `subscription.past_due`,
+   `subscription.paused` and `subscription.resumed`). Note its secret key.
 4. **Checkout → Checkout settings:** a checkout page of the site, e.g.
    `https://<site>/checkout/jpeg-repair`, as the default payment link, and,
    for the live account, the domain approved. Checkouts that Paddle starts

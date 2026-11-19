@@ -47,7 +47,7 @@ class PaddleWebhookTest extends LicenseTestBase {
     ];
     new Settings($settings);
     $this->config('system.site')->set('mail', 'shop@example.com')->save();
-    $this->product->set('paddle_prices', ['pri_yearly'])->save();
+    $this->product->set('paddle_prices', ['pri_once', 'pri_yearly'])->save();
     FakePaddleClient::$calls = 0;
     FakePaddleClient::$transactions = [
       'txn_first' => [
@@ -124,21 +124,67 @@ class PaddleWebhookTest extends LicenseTestBase {
   }
 
   /**
-   * Other sales, one-time prices and API failures create nothing.
+   * A one-time payment creates a licence with a year of updates, once.
+   */
+  public function testOneTimePurchase(): void {
+    $webhook = $this->container->get('wudo_license.paddle_webhook');
+    $webhook->process($this->oneTime('txn_first', '2026-11-19T16:58:00Z'));
+
+    $licenses = License::loadMultiple();
+    $this->assertCount(1, $licenses);
+    $license = reset($licenses);
+    $this->assertSame('SIA Example', $license->getLicensee());
+    $this->assertSame('2027-11-19', $license->getUpdatesUntil());
+    $this->assertSame('txn_first', $license->get('paddle_transaction')->value);
+    $this->assertSame('', $license->getPaddleSubscription());
+    $this->assertSame('', $license->getPaddleStatus());
+
+    $mails = $this->getMails(['key' => 'purchase']);
+    $this->assertCount(2, $mails);
+    $this->assertStringContainsString($license->getKey(), (string) $mails[0]['body']);
+    $this->assertStringContainsString('buy a new licence', (string) $mails[0]['body']);
+
+    // Delivered again: nothing new.
+    $webhook->process($this->oneTime('txn_first', '2026-11-19T16:58:00Z'));
+    $this->assertCount(1, License::loadMultiple());
+    $this->assertCount(2, $this->getMails());
+
+    // A year later the customer buys again and gets a new licence.
+    FakePaddleClient::$transactions['txn_next'] = FakePaddleClient::$transactions['txn_first'];
+    $webhook->process($this->oneTime('txn_next', '2027-11-25T09:00:00Z'));
+    $licenses = License::loadMultiple();
+    $this->assertCount(2, $licenses);
+    $this->assertSame('2028-11-25', end($licenses)->getUpdatesUntil());
+    $this->assertNotSame($license->getKey(), end($licenses)->getKey());
+  }
+
+  /**
+   * Reminders of a one-time licence point to the product's checkout page.
+   */
+  public function testOneTimeReminder(): void {
+    $today = date('Y-m-d', \Drupal::time()->getRequestTime());
+    $paid = date('Y-m-d', strtotime($today . ' -1 year +5 days'));
+    $this->container->get('wudo_license.paddle_webhook')->process($this->oneTime('txn_first', $paid . 'T10:00:00Z'));
+
+    \Drupal::moduleHandler()->invoke('wudo_license', 'cron');
+    $mails = $this->getMails(['key' => 'reminder']);
+    $this->assertCount(2, $mails);
+    $this->assertStringContainsString('/checkout/reverb-pro', (string) $mails[0]['body']);
+  }
+
+  /**
+   * Other sales and API failures create nothing.
    */
   public function testIgnoredAndFailed(): void {
     $webhook = $this->container->get('wudo_license.paddle_webhook');
     $other = $this->completed('txn_first', '2027-11-19T10:00:00.000000Z');
     $other['data']['items'][0]['price']['id'] = 'pri_other';
     $webhook->process($other);
-    $one_time = $this->completed('txn_first', '2027-11-19T10:00:00.000000Z');
-    $one_time['data']['subscription_id'] = NULL;
-    $webhook->process($one_time);
     $this->assertCount(0, License::loadMultiple());
 
     // Paddle retries when the API did not answer.
     $this->expectException(\RuntimeException::class);
-    $webhook->process($this->completed('txn_unknown', '2027-11-19T10:00:00.000000Z'));
+    $webhook->process($this->oneTime('txn_unknown', '2026-11-19T10:00:00Z'));
   }
 
   /**
@@ -181,6 +227,18 @@ class PaddleWebhookTest extends LicenseTestBase {
         'billing_period' => ['starts_at' => '2026-11-19T10:00:00Z', 'ends_at' => $ends_at],
       ],
     ];
+  }
+
+  /**
+   * A transaction.completed event of a one-time price.
+   */
+  protected function oneTime(string $transaction, string $billed_at): array {
+    $event = $this->completed($transaction, '');
+    $event['data']['subscription_id'] = NULL;
+    $event['data']['billing_period'] = NULL;
+    $event['data']['billed_at'] = $billed_at;
+    $event['data']['items'][0]['price']['id'] = 'pri_once';
+    return $event;
   }
 
   /**

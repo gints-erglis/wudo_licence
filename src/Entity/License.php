@@ -252,6 +252,12 @@ class License extends ContentEntityBase {
       ->setDisplayOptions('form', ['type' => 'string_textarea', 'weight' => 7, 'settings' => ['rows' => 3]])
       ->setDisplayConfigurable('form', TRUE);
 
+    $fields['paddle_transaction'] = BaseFieldDefinition::create('string')
+      ->setLabel(new TranslatableMarkup('Paddle transaction'))
+      ->setDescription(new TranslatableMarkup('Internal: the Paddle payment (txn_…) that created the licence.'))
+      ->setSetting('max_length', 64)
+      ->addConstraint('UniqueField');
+
     $fields['paddle_subscription'] = BaseFieldDefinition::create('string')
       ->setLabel(new TranslatableMarkup('Paddle subscription'))
       ->setDescription(new TranslatableMarkup('Set by a purchase through Paddle (sub_…). Each renewal payment of the subscription extends "Updates until".'))
