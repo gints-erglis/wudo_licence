@@ -34,3 +34,15 @@ wudo_license.activation_delete:
     _permission: 'administer software licenses'
   options:
     _admin_route: TRUE
+
+wudo_license.paddle_webhook:
+  path: '/paddle/webhook'
+  defaults:
+    _controller: '\Drupal\wudo_license\Controller\PaddleWebhookController::receive'
+  methods: [POST]
+  requirements:
+    # Open to everyone: the controller accepts only requests signed with the
+    # webhook secret.
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE

@@ -1,0 +1,35 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for Wudo License.
+ */
+
+declare(strict_types=1);
+
+use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\wudo_license\Entity\License;
+use Drupal\wudo_license\Entity\LicenseProduct;
+
+/**
+ * Add the Paddle fields to products and licences.
+ */
+function wudo_license_update_11001(): void {
+  $manager = \Drupal::entityDefinitionUpdateManager();
+  $new = [
+    'wudo_license_product' => [LicenseProduct::class, ['paddle_prices']],
+    'wudo_license' => [
+      License::class,
+      ['paddle_subscription', 'paddle_customer', 'paddle_status', 'paddle_status_changed'],
+    ],
+  ];
+  foreach ($new as $entity_type_id => [$class, $names]) {
+    $definitions = $class::baseFieldDefinitions($manager->getEntityType($entity_type_id));
+    foreach ($names as $name) {
+      // Base field definitions are their own storage definitions.
+      if ($definitions[$name] instanceof FieldStorageDefinitionInterface && !$manager->getFieldStorageDefinition($name, $entity_type_id)) {
+        $manager->installFieldStorageDefinition($name, $entity_type_id, 'wudo_license', $definitions[$name]);
+      }
+    }
+  }
+}

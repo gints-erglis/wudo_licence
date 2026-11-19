@@ -16,6 +16,8 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
 use Drupal\wudo_license\Entity\License;
 use Drupal\wudo_license\LicenseSigner;
+use Drupal\wudo_license\Paddle\PaddleClient;
+use Drupal\wudo_license\Paddle\PaddleWebhook;
 
 /**
  * Hook implementations for Wudo License.
@@ -32,6 +34,7 @@ class LicenseHooks {
     protected TimeInterface $time,
     protected LicenseSigner $signer,
     protected StreamWrapperManagerInterface $streamWrapperManager,
+    protected PaddleClient $paddle,
   ) {}
 
   /**
@@ -90,6 +93,38 @@ class LicenseHooks {
         $message['body'][] = $this->t('Your downloads: @url', ['@url' => $downloads], $options);
         $message['body'][] = $site;
         break;
+
+      case 'purchase':
+        $message['subject'] = $this->t('Your licence key for @product', ['@product' => $product], $options);
+        $message['body'][] = $this->t('Thank you for buying @product. The licence for @licensee has the key:', [
+          '@product' => $product,
+          '@licensee' => $license->getLicensee(),
+        ], $options);
+        $message['body'][] = $license->getKey();
+        $message['body'][] = $this->t('Keep this key. At @url, enter it and the code we then send to this address: you can download the software and get a licence file for each of your @count computers.', [
+          '@url' => $downloads,
+          '@count' => $license->getMaxActivations(),
+        ], $options);
+        $message['body'][] = $this->t('Updates are included until @date, and each yearly renewal of the subscription extends them. Versions released up to the last day of your updates remain yours, even if you cancel. Paddle, our reseller, sends the receipt and handles the subscription.', [
+          '@date' => $license->getUpdatesUntil(),
+        ], $options);
+        $message['body'][] = $site;
+        break;
+
+      case 'renewed':
+        $message['subject'] = $this->t('Updates for @product extended until @date', [
+          '@product' => $product,
+          '@date' => $license->getUpdatesUntil(),
+        ], $options);
+        $message['body'][] = $this->t('Hello,', [], $options);
+        $message['body'][] = $this->t('your subscription was renewed: the updates of your @product licence (@licensee) are now included until @date. New versions, and a licence file that works with them, are on your downloads page: @url', [
+          '@product' => $product,
+          '@licensee' => $license->getLicensee(),
+          '@date' => $license->getUpdatesUntil(),
+          '@url' => $downloads,
+        ], $options);
+        $message['body'][] = $site;
+        break;
     }
   }
 
@@ -98,7 +133,8 @@ class LicenseHooks {
    *
    * Reminds customers before their updates end, once per configured number
    * of days (by default 30 and 7) and end date. A day missed by cron is
-   * caught up on the next run.
+   * caught up on the next run. Licences whose Paddle subscription still
+   * renews on its own get no reminders.
    */
   #[Hook('cron')]
   public function cron(): void {
@@ -112,8 +148,12 @@ class LicenseHooks {
     $horizon = date('Y-m-d', strtotime($today . ' +' . max($days) . ' days'));
 
     $storage = $this->entityTypeManager->getStorage('wudo_license');
-    $ids = $storage->getQuery()
-      ->accessCheck(FALSE)
+    $query = $storage->getQuery()->accessCheck(FALSE);
+    $not_renewing = $query->orConditionGroup()
+      ->notExists('paddle_status')
+      ->condition('paddle_status', PaddleWebhook::RENEWING, 'NOT IN');
+    $ids = $query
+      ->condition($not_renewing)
       ->condition('revoked', 0)
       ->condition('updates_until', [$today, $horizon], 'BETWEEN')
       ->range(0, 100)
@@ -184,6 +224,24 @@ class LicenseHooks {
         'description' => $this->t("Release files are kept in the private file system. Set \$settings['file_private_path'] to a directory outside the web root."),
         'severity' => REQUIREMENT_ERROR,
       ];
+    }
+    if ($this->paddle->isEnabled()) {
+      $missing = $this->paddle->missing();
+      $requirements['wudo_license_paddle'] = $missing
+        ? [
+          'title' => $this->t('Licence sales (Paddle)'),
+          'value' => $this->t('Incomplete'),
+          'description' => $this->t("Missing in \$settings['@setting']: @missing.", [
+            '@setting' => PaddleClient::SETTING,
+            '@missing' => implode(', ', $missing),
+          ]),
+          'severity' => REQUIREMENT_ERROR,
+        ]
+        : [
+          'title' => $this->t('Licence sales (Paddle)'),
+          'value' => $this->paddle->environment() === 'production' ? $this->t('Live') : $this->t('Sandbox: test payments only'),
+          'severity' => $this->paddle->environment() === 'production' ? REQUIREMENT_OK : REQUIREMENT_WARNING,
+        ];
     }
     return $requirements;
   }

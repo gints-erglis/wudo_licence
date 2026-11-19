@@ -18,6 +18,7 @@ use Drupal\wudo_license\Form\CodeForm;
 use Drupal\wudo_license\Form\KeyForm;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -48,7 +49,7 @@ final class DownloadController extends ControllerBase {
   /**
    * Shows the key form, the code form or the downloads.
    */
-  public function page(): array {
+  public function page(Request $request): array {
     // Different for every visitor; never cached.
     $this->killSwitch->trigger();
     $build = [
@@ -63,6 +64,10 @@ final class DownloadController extends ControllerBase {
       ],
     ];
 
+    // Back from Paddle's checkout.
+    if ($request->query->has('purchased')) {
+      $this->messenger()->addStatus($this->t('Thank you for your purchase. Your licence key is on its way to your e-mail address; enter it here.'));
+    }
     $license = $this->access->grantedLicense();
     if ($license) {
       return $build + $this->downloads($license);

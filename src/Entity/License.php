@@ -167,6 +167,20 @@ class License extends ContentEntityBase {
   }
 
   /**
+   * The Paddle subscription that pays for the licence, if any.
+   */
+  public function getPaddleSubscription(): string {
+    return (string) $this->get('paddle_subscription')->value;
+  }
+
+  /**
+   * The Paddle subscription's status, e.g. "active" or "canceled".
+   */
+  public function getPaddleStatus(): string {
+    return (string) $this->get('paddle_status')->value;
+  }
+
+  /**
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type): array {
@@ -237,6 +251,28 @@ class License extends ContentEntityBase {
       ->setLabel(new TranslatableMarkup('Notes'))
       ->setDisplayOptions('form', ['type' => 'string_textarea', 'weight' => 7, 'settings' => ['rows' => 3]])
       ->setDisplayConfigurable('form', TRUE);
+
+    $fields['paddle_subscription'] = BaseFieldDefinition::create('string')
+      ->setLabel(new TranslatableMarkup('Paddle subscription'))
+      ->setDescription(new TranslatableMarkup('Set by a purchase through Paddle (sub_…). Each renewal payment of the subscription extends "Updates until".'))
+      ->setSetting('max_length', 64)
+      ->addConstraint('UniqueField')
+      ->setDisplayOptions('form', ['type' => 'string_textfield', 'weight' => 8])
+      ->setDisplayConfigurable('form', TRUE);
+
+    $fields['paddle_customer'] = BaseFieldDefinition::create('string')
+      ->setLabel(new TranslatableMarkup('Paddle customer'))
+      ->setDescription(new TranslatableMarkup('Internal: the Paddle customer (ctm_…) who bought the licence.'))
+      ->setSetting('max_length', 64);
+
+    $fields['paddle_status'] = BaseFieldDefinition::create('string')
+      ->setLabel(new TranslatableMarkup('Paddle subscription status'))
+      ->setDescription(new TranslatableMarkup('Internal: kept up to date by Paddle webhooks.'))
+      ->setSetting('max_length', 32);
+
+    $fields['paddle_status_changed'] = BaseFieldDefinition::create('timestamp')
+      ->setLabel(new TranslatableMarkup('Paddle status changed'))
+      ->setDescription(new TranslatableMarkup('Internal: when Paddle reported the status, so that a late older event does not replace it.'));
 
     $fields['reminded'] = BaseFieldDefinition::create('string')
       ->setLabel(new TranslatableMarkup('Last reminder'))

@@ -1,7 +1,8 @@
 # Wudo License
 
-A Drupal 11 module for selling software by licence, with the purchase done
-outside the website (by invoice). The customer gets a licence key, opens
+A Drupal 11 module for selling software by licence, either by invoice or as
+a yearly subscription through [Paddle](https://www.paddle.com), which as
+merchant of record charges, invoices and pays the taxes. The customer gets a licence key, opens
 their downloads with it and a code sent by e-mail, downloads the versions
 the licence covers, and gets a signed licence file for each computer the
 software runs on. There are no customer accounts or passwords.
@@ -121,6 +122,77 @@ Settings without a form (`drush config:edit wudo_license.settings`):
 computers per new licence, minutes a code is valid, minutes the downloads
 stay open, and the reminder days.
 
+## Selling with Paddle
+
+Paddle sells each product as a yearly subscription, and the site follows
+by webhook; nobody has to be there:
+
+1. A visitor presses the "Buy a licence (Paddle)" block's button. Only then
+   is Paddle.js loaded from Paddle, and its checkout opens over the page.
+2. When the payment is complete, Paddle calls `/paddle/webhook`. The module
+   asks Paddle's API for the buyer's e-mail address and name (the business
+   name, if they gave one), creates a licence with updates until the end of
+   the paid year, and e-mails the key, with a copy to the site's address.
+   The buyer comes back to `/downloads`. A quantity above one gives that
+   many times the default number of computers.
+3. Every year Paddle charges again; each payment extends "Updates until" to
+   the end of the new year and tells the customer. While the subscription
+   runs, no reminders are sent. If it is cancelled or the payment fails for
+   good, the updates stop at the last paid day, the reminders resume, and
+   the versions up to then keep working. Customers cancel, and change their
+   card, through the links in Paddle's e-mails.
+
+Refunds are not acted on: revoke the licence by hand if you want to.
+
+### Setting up
+
+In Paddle (start in the sandbox, <https://sandbox-vendors.paddle.com>):
+
+1. **Catalog → Products:** a product with a price that recurs every year.
+   Note the price ID (`pri_…`).
+2. **Developer tools → Authentication:** a client-side token (`test_…` or
+   `live_…`) and an API key that may read transactions, customers and
+   businesses.
+3. **Developer tools → Notifications:** a destination
+   `https://<site>/paddle/webhook` with the events `transaction.completed`,
+   `subscription.created`, `subscription.updated`, `subscription.canceled`,
+   `subscription.past_due`, `subscription.paused` and
+   `subscription.resumed`. Note its secret key.
+4. **Checkout → Checkout settings:** the site's address as the default
+   payment link, and, for the live account, the domain approved.
+
+In the site's settings, with the values in `.ddev/.env`:
+
+```php
+$settings['wudo_license_paddle'] = [
+  // 'production' for the live account.
+  'environment' => 'sandbox',
+  'client_token' => getenv('PADDLE_CLIENT_TOKEN'),
+  'api_key' => getenv('PADDLE_API_KEY'),
+  'webhook_secret' => getenv('PADDLE_WEBHOOK_SECRET'),
+];
+```
+
+Then add the price ID to the product (Content → Licences → Products), and
+place the "Buy a licence (Paddle)" block where it should be.
+`/admin/reports/status` says whether the settings are complete and whether
+the sandbox or the live account is used. The sandbox and the live account
+have different price IDs, tokens and keys.
+
+The page's Content-Security-Policy must allow Paddle: `https://cdn.paddle.com`
+for scripts and styles, `https://*.paddle.com` for connections, and
+`https://buy.paddle.com` and `https://sandbox-buy.paddle.com` for frames.
+
+To test, buy in the sandbox with Paddle's test card 4242 4242 4242 4242
+(any name, a future date, CVC 100). A local site needs a tunnel (for
+example `ddev share`) for Paddle to reach the webhook. Paddle's
+notification simulator can send a renewal.
+
+Webhooks are refused without a valid signature, or when signed more than
+five minutes ago. An event that fails, for example because Paddle's API did
+not answer, is answered with an error, so that Paddle sends it again later;
+every step can run twice without effect.
+
 ## Security notes
 
 - Every key gets the same answer, so trying keys reveals nothing; the e-mail
@@ -144,7 +216,8 @@ is not open source.
 
 ## Development
 
-Kernel tests in `tests/src/Kernel`:
+Kernel tests in `tests/src/Kernel`, the Paddle webhooks with a fake API
+client:
 
 ```bash
 vendor/bin/phpunit web/modules/custom/wudo_license

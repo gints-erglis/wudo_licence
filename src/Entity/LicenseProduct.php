@@ -58,6 +58,16 @@ class LicenseProduct extends ContentEntityBase {
   }
 
   /**
+   * The Paddle prices (pri_…) that sell the product.
+   *
+   * @return string[]
+   *   Price IDs.
+   */
+  public function getPaddlePrices(): array {
+    return array_values(array_filter(array_map(static fn (array $item): string => trim((string) ($item['value'] ?? '')), $this->get('paddle_prices')->getValue())));
+  }
+
+  /**
    * {@inheritdoc}
    */
   public static function baseFieldDefinitions(EntityTypeInterface $entity_type): array {
@@ -78,6 +88,15 @@ class LicenseProduct extends ContentEntityBase {
       ->addConstraint('UniqueField')
       ->addPropertyConstraints('value', ['Regex' => ['pattern' => '/^[a-z0-9][a-z0-9-]*$/D']])
       ->setDisplayOptions('form', ['type' => 'string_textfield', 'weight' => 1])
+      ->setDisplayConfigurable('form', TRUE);
+
+    $fields['paddle_prices'] = BaseFieldDefinition::create('string')
+      ->setLabel(new TranslatableMarkup('Paddle prices'))
+      ->setDescription(new TranslatableMarkup('Yearly Paddle prices (pri_…) that sell this product. A first payment creates a licence and e-mails its key; each renewal extends its updates by the paid period. A price of the sandbox and one of the live account are different IDs.'))
+      ->setCardinality(BaseFieldDefinition::CARDINALITY_UNLIMITED)
+      ->setSetting('max_length', 64)
+      ->addPropertyConstraints('value', ['Regex' => ['pattern' => '/^pri_[a-z0-9]+$/D']])
+      ->setDisplayOptions('form', ['type' => 'string_textfield', 'weight' => 2])
       ->setDisplayConfigurable('form', TRUE);
 
     return $fields;

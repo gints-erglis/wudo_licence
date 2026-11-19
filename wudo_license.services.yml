@@ -15,3 +15,11 @@ services:
     arguments:
       $codes: '@keyvalue.expirable'
   Drupal\wudo_license\DownloadAccess: '@wudo_license.access'
+
+  wudo_license.paddle:
+    class: Drupal\wudo_license\Paddle\PaddleClient
+  Drupal\wudo_license\Paddle\PaddleClient: '@wudo_license.paddle'
+
+  wudo_license.paddle_webhook:
+    class: Drupal\wudo_license\Paddle\PaddleWebhook
+  Drupal\wudo_license\Paddle\PaddleWebhook: '@wudo_license.paddle_webhook'

@@ -1,0 +1,8 @@
+paddle_checkout:
+  js:
+    js/paddle-checkout.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/drupal.message
+    - core/once

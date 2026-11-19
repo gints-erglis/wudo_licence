@@ -58,6 +58,16 @@ class LicenseForm extends ContentEntityForm {
       '#weight' => -10,
     ];
 
+    if ($license->getPaddleSubscription() !== '') {
+      $form['paddle_status_display'] = [
+        '#type' => 'item',
+        '#title' => $this->t('Paddle subscription status'),
+        '#markup' => $license->getPaddleStatus() ?: $this->t('unknown'),
+        '#description' => $this->t('While it is active, Paddle charges each year and "Updates until" is extended on its own; no reminders are sent.'),
+        '#weight' => 9,
+      ];
+    }
+
     if (!$license->isNew()) {
       $rows = [];
       foreach ($this->activator->activations($license) as $activation) {
