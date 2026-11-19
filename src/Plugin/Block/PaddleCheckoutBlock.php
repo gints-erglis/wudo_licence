@@ -11,7 +11,6 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
-use Drupal\Core\Url;
 use Drupal\wudo_license\Entity\LicenseProduct;
 use Drupal\wudo_license\Paddle\PaddleClient;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -19,8 +18,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * A button that opens Paddle's checkout for one price.
  *
- * Paddle.js is loaded from Paddle only when the button is pressed, so the
- * page makes no request to Paddle before the visitor chooses to buy.
+ * For a page of its own, link to /checkout/{product code} instead.
  */
 #[Block(
   id: 'wudo_license_paddle_checkout',
@@ -99,37 +97,8 @@ final class PaddleCheckoutBlock extends BlockBase implements ContainerFactoryPlu
    * {@inheritdoc}
    */
   public function build(): array {
-    $price = (string) $this->configuration['price'];
-    if ($price === '' || $this->paddle->clientToken() === '') {
-      return [];
-    }
-    return [
-      'button' => [
-        '#type' => 'html_tag',
-        '#tag' => 'button',
-        '#value' => $this->configuration['button'] ?: $this->t('Buy a licence'),
-        // Shown by the script; without it the button could do nothing.
-        '#attributes' => [
-          'type' => 'button',
-          'class' => ['button', 'wudo-license-buy'],
-          'data-paddle-price' => $price,
-          'hidden' => 'hidden',
-        ],
-      ],
-      '#attached' => [
-        'library' => ['wudo_license/paddle_checkout'],
-        'drupalSettings' => [
-          'wudoLicensePaddle' => [
-            'token' => $this->paddle->clientToken(),
-            'environment' => $this->paddle->environment(),
-            'successUrl' => Url::fromRoute('wudo_license.downloads', [], [
-              'query' => ['purchased' => 1],
-              'absolute' => TRUE,
-            ])->toString(),
-          ],
-        ],
-      ],
-    ];
+    $button = $this->paddle->checkoutButton((string) $this->configuration['price'], $this->configuration['button'] ?: $this->t('Buy a licence'));
+    return $button ? ['button' => $button] : [];
   }
 
   /**

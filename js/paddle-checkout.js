@@ -3,7 +3,9 @@
  * Opens Paddle's checkout from a "Buy" button.
  *
  * Paddle.js comes from Paddle's CDN only when a button is pressed, so no
- * request goes to Paddle before the visitor chooses to buy.
+ * request goes to Paddle before the visitor chooses to buy. The exception is
+ * a checkout Paddle started itself (a payment link, "?_ptxn=…"): Paddle.js
+ * opens it as soon as it is loaded.
  */
 ((Drupal, drupalSettings, once) => {
   let paddleReady;
@@ -24,7 +26,10 @@
         if (settings.environment === 'sandbox') {
           window.Paddle.Environment.set('sandbox');
         }
-        window.Paddle.Initialize({ token: settings.token });
+        window.Paddle.Initialize({
+          token: settings.token,
+          checkout: { settings: { successUrl: settings.successUrl } },
+        });
         resolve(window.Paddle);
       });
       script.addEventListener('error', () => {
@@ -41,6 +46,17 @@
       const settings = drupalSettings.wudoLicensePaddle;
       if (!settings) {
         return;
+      }
+      if (
+        new URLSearchParams(window.location.search).has('_ptxn') &&
+        once('wudo-license-ptxn', 'html').length
+      ) {
+        loadPaddle(settings).catch(() => {
+          new Drupal.Message().add(
+            Drupal.t('The checkout could not be opened. Please try again later.'),
+            { type: 'error' },
+          );
+        });
       }
       once('wudo-license-buy', '[data-paddle-price]', context).forEach(
         (button) => {

@@ -6,6 +6,7 @@ namespace Drupal\wudo_license\Paddle;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Site\Settings;
+use Drupal\Core\Url;
 use GuzzleHttp\ClientInterface;
 
 /**
@@ -72,6 +73,59 @@ class PaddleClient {
       ['client_token', 'api_key', 'webhook_secret'],
       fn (string $name): bool => $this->value($name) === '',
     ));
+  }
+
+  /**
+   * A button that opens Paddle's checkout for one price.
+   *
+   * Paddle.js is loaded from Paddle only when the button is pressed, so the
+   * page makes no request to Paddle before the visitor chooses to buy. The
+   * button is hidden until the script shows it: without the script it could
+   * do nothing.
+   *
+   * @param string $price
+   *   The Paddle price ID.
+   * @param string|\Stringable $label
+   *   The button text.
+   *
+   * @return array
+   *   A render array; empty when there is no client-side token.
+   */
+  public function checkoutButton(string $price, string|\Stringable $label): array {
+    if ($price === '' || $this->clientToken() === '') {
+      return [];
+    }
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'button',
+      '#value' => $label,
+      '#attributes' => [
+        'type' => 'button',
+        'class' => ['button', 'button--primary', 'wudo-license-buy'],
+        'data-paddle-price' => $price,
+        'hidden' => 'hidden',
+      ],
+      '#attached' => $this->checkoutAttachments(),
+    ];
+  }
+
+  /**
+   * The script and its settings for opening Paddle's checkout.
+   */
+  public function checkoutAttachments(): array {
+    return [
+      'library' => ['wudo_license/paddle_checkout'],
+      'drupalSettings' => [
+        'wudoLicensePaddle' => [
+          'token' => $this->clientToken(),
+          'environment' => $this->environment(),
+          'successUrl' => Url::fromRoute('wudo_license.downloads', [], [
+            'query' => ['purchased' => 1],
+            'absolute' => TRUE,
+          ])->toString(),
+        ],
+      ],
+    ];
   }
 
   /**

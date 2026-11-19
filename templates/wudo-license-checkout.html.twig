@@ -1,0 +1,22 @@
+{#
+/**
+ * @file
+ * The page for buying one product.
+ *
+ * Available variables:
+ * - product: the product's name.
+ * - button: opens Paddle's checkout; shown by its script.
+ * - downloads_url: where customers with a key go.
+ */
+#}
+<div class="license-checkout">
+  <p>{{ 'A yearly licence for @product, with every update released during the year.'|t({'@product': product}) }}</p>
+  <ul>
+    <li>{{ 'The licence key arrives by e-mail right after the payment.'|t }}</li>
+    <li>{{ 'The subscription renews every year and can be cancelled at any time. The versions released until then remain yours and keep working.'|t }}</li>
+    <li>{{ 'The next step shows the price with the taxes of your country. The payment is handled by Paddle, our reseller.'|t }}</li>
+  </ul>
+  {{ button }}
+  <noscript><p>{{ 'Buying needs JavaScript.'|t }}</p></noscript>
+  <p>{{ 'Already have a key? <a href=":url">Go to your downloads</a>.'|t({':url': downloads_url}) }}</p>
+</div>

@@ -127,8 +127,12 @@ stay open, and the reminder days.
 Paddle sells each product as a yearly subscription, and the site follows
 by webhook; nobody has to be there:
 
-1. A visitor presses the "Buy a licence (Paddle)" block's button. Only then
-   is Paddle.js loaded from Paddle, and its checkout opens over the page.
+1. Every product with a Paddle price has a page of its own,
+   `/checkout/{product code}` (e.g. `/checkout/jpeg-repair`): a stable
+   address to link to from the software, e-mails and other sites. The
+   "Buy a licence (Paddle)" block puts the same button on any other page.
+   Only when the button is pressed is Paddle.js loaded from Paddle, and its
+   checkout opens over the page.
 2. When the payment is complete, Paddle calls `/paddle/webhook`. The module
    asks Paddle's API for the buyer's e-mail address and name (the business
    name, if they gave one), creates a licence with updates until the end of
@@ -158,8 +162,11 @@ In Paddle (start in the sandbox, <https://sandbox-vendors.paddle.com>):
    `subscription.created`, `subscription.updated`, `subscription.canceled`,
    `subscription.past_due`, `subscription.paused` and
    `subscription.resumed`. Note its secret key.
-4. **Checkout → Checkout settings:** the site's address as the default
-   payment link, and, for the live account, the domain approved.
+4. **Checkout → Checkout settings:** a checkout page of the site, e.g.
+   `https://<site>/checkout/jpeg-repair`, as the default payment link, and,
+   for the live account, the domain approved. Checkouts that Paddle starts
+   itself (invoices, recovery e-mails) open there: the page loads Paddle.js
+   at once when the address has `?_ptxn=…`.
 
 In the site's settings, with the values in `.ddev/.env`:
 
@@ -173,8 +180,9 @@ $settings['wudo_license_paddle'] = [
 ];
 ```
 
-Then add the price ID to the product (Content → Licences → Products), and
-place the "Buy a licence (Paddle)" block where it should be.
+Then add the price ID to the product (Content → Licences → Products); its
+checkout page works from then on. Products without a price have none (404).
+With more than one price, the page sells the first; the block can sell any.
 `/admin/reports/status` says whether the settings are complete and whether
 the sandbox or the live account is used. The sandbox and the live account
 have different price IDs, tokens and keys.

@@ -51,6 +51,13 @@ class LicenseHooks {
           'close_form' => NULL,
         ],
       ],
+      'wudo_license_checkout' => [
+        'variables' => [
+          'product' => '',
+          'button' => [],
+          'downloads_url' => '',
+        ],
+      ],
     ];
   }
 

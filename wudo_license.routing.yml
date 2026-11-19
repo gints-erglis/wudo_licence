@@ -46,3 +46,13 @@ wudo_license.paddle_webhook:
     _access: 'TRUE'
   options:
     no_cache: TRUE
+
+wudo_license.checkout:
+  path: '/checkout/{code}'
+  defaults:
+    _controller: '\Drupal\wudo_license\Controller\CheckoutController::page'
+    _title_callback: '\Drupal\wudo_license\Controller\CheckoutController::title'
+  requirements:
+    # Open to everyone: the page only offers the product for sale.
+    _access: 'TRUE'
+    code: '[a-z0-9][a-z0-9-]*'
