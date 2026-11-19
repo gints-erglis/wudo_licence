@@ -22,4 +22,7 @@ services:
 
   wudo_license.paddle_webhook:
     class: Drupal\wudo_license\Paddle\PaddleWebhook
+    arguments:
+      # Core has two lock services and aliases neither for autowiring.
+      $lock: '@lock'
   Drupal\wudo_license\Paddle\PaddleWebhook: '@wudo_license.paddle_webhook'
