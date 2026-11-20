@@ -54,6 +54,7 @@ class LicenseHooks {
       'wudo_license_checkout' => [
         'variables' => [
           'product' => '',
+          'products' => [],
           'button' => [],
           'downloads_url' => '',
         ],

@@ -47,6 +47,15 @@ wudo_license.paddle_webhook:
   options:
     no_cache: TRUE
 
+wudo_license.payment:
+  path: '/checkout'
+  defaults:
+    _controller: '\Drupal\wudo_license\Controller\CheckoutController::payment'
+    _title: 'Complete your purchase'
+  requirements:
+    # Open to everyone: the page only opens a checkout Paddle started.
+    _access: 'TRUE'
+
 wudo_license.checkout:
   path: '/checkout/{code}'
   defaults:

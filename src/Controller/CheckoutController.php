@@ -12,12 +12,13 @@ use Drupal\wudo_license\Paddle\PaddleClient;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * A page of its own for buying each product: /checkout/{product code}.
+ * The pages for buying.
  *
- * A stable address to link to from the software itself, e-mails and other
- * sites. It is also the page to set as Paddle's default payment link: a
- * checkout Paddle starts elsewhere (an invoice, a recovery e-mail) arrives
- * here with "?_ptxn=…", and the script opens it at once.
+ * - /checkout/{product code}: a page of its own for each product, a stable
+ *   address to link to from the software itself, e-mails and other sites.
+ * - /checkout: the page to set as Paddle's default payment link. A checkout
+ *   Paddle starts elsewhere (an invoice, a payment link), for any product,
+ *   arrives here with "?_ptxn=…", and the script opens it at once.
  */
 final class CheckoutController extends ControllerBase {
 
@@ -40,6 +41,34 @@ final class CheckoutController extends ControllerBase {
     ];
     CacheableMetadata::createFromObject($product)->applyTo($build);
     return $build;
+  }
+
+  /**
+   * The page for checkouts Paddle started: no product of its own.
+   *
+   * Without "?_ptxn=…" in the address it lists the products for sale.
+   */
+  public function payment(): array {
+    if ($this->paddle->clientToken() === '') {
+      throw new NotFoundHttpException();
+    }
+    $products = [];
+    foreach ($this->entityTypeManager()->getStorage('wudo_license_product')->loadMultiple() as $product) {
+      if ($product instanceof LicenseProduct && $product->getPaddlePrices()) {
+        $products[] = [
+          'label' => $product->label(),
+          'url' => Url::fromRoute('wudo_license.checkout', ['code' => $product->getCode()])->toString(),
+        ];
+      }
+    }
+    usort($products, fn (array $a, array $b): int => strnatcasecmp((string) $a['label'], (string) $b['label']));
+    return [
+      '#theme' => 'wudo_license_checkout',
+      '#products' => $products,
+      '#downloads_url' => Url::fromRoute('wudo_license.downloads')->toString(),
+      '#attached' => $this->paddle->checkoutAttachments(),
+      '#cache' => ['tags' => ['wudo_license_product_list']],
+    ];
   }
 
   /**

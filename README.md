@@ -167,11 +167,11 @@ In Paddle (start in the sandbox, <https://sandbox-vendors.paddle.com>):
    (and, for subscription prices, `subscription.created`,
    `subscription.updated`, `subscription.canceled`, `subscription.past_due`,
    `subscription.paused` and `subscription.resumed`). Note its secret key.
-4. **Checkout → Checkout settings:** a checkout page of the site, e.g.
-   `https://<site>/checkout/jpeg-repair`, as the default payment link, and,
-   for the live account, the domain approved. Checkouts that Paddle starts
-   itself (invoices, recovery e-mails) open there: the page loads Paddle.js
-   at once when the address has `?_ptxn=…`.
+4. **Checkout → Checkout settings:** `https://<site>/checkout` as the
+   default payment link, and, for the live account, the domain approved.
+   Checkouts that Paddle starts itself (invoices, payment links), for any
+   product, open there: the page loads Paddle.js at once when the address
+   has `?_ptxn=…`. Without it, the page lists the products for sale.
 
 In the site's settings, with the values in `.ddev/.env`:
 

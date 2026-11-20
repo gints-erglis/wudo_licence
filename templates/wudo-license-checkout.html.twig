@@ -1,15 +1,18 @@
 {#
 /**
  * @file
- * The page for buying one product.
+ * The page for buying one product, or for a checkout Paddle started.
  *
  * Available variables:
- * - product: the product's name.
+ * - product: the product's name; empty on the page for a checkout Paddle
+ *   started (a payment link with "?_ptxn=…").
+ * - products: on that page, the products for sale, each with label and url.
  * - button: opens Paddle's checkout; shown by its script.
  * - downloads_url: where customers with a key go.
  */
 #}
 <div class="license-checkout">
+  {% if product %}
   <p>{{ 'A licence for @product with one year of updates: every version released during that year.'|t({'@product': product}) }}</p>
   <ul>
     <li>{{ 'You pay once. The licence key arrives by e-mail right after the payment.'|t }}</li>
@@ -17,6 +20,18 @@
     <li>{{ 'The next step shows the price with the taxes of your country. The payment is handled by Paddle, our reseller.'|t }}</li>
   </ul>
   {{ button }}
+  {% else %}
+  <p>{{ 'Your payment opens on this page in a moment. If it does not, open the payment link from your e-mail or invoice again.'|t }}</p>
+  <p>{{ 'The payment is handled by Paddle, our reseller, with the taxes of your country.'|t }}</p>
+  {% if products %}
+  <p>{{ 'To buy a licence, choose the product:'|t }}</p>
+  <ul>
+    {% for item in products %}
+    <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endif %}
   <noscript><p>{{ 'Buying needs JavaScript.'|t }}</p></noscript>
   <p>{{ 'Already have a key? <a href=":url">Go to your downloads</a>.'|t({':url': downloads_url}) }}</p>
 </div>
